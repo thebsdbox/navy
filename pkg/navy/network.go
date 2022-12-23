@@ -134,23 +134,23 @@ func (c *Captain) Send(to int, addr string, what int) error {
 	for attempts := 0; ; attempts++ {
 		switch what {
 		case PEERLIST:
-			err = c.peers.Write(to, &Message{Rank: c.rank, Addr: c.addr, Peers: c.peers.PeerData(), Type: what})
+			err = c.peers.Write(to, &Message{Rank: c.rank, Addr: c.addr, Peers: c.peers.PeerData(), Type: what, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
 		case LEADER:
 			log.Infof("[LEADER] informing %s of leader %s %d", addr, c.LeaderAddress(), c.LeaderRank())
-			err = c.peers.Write(to, &Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: what})
+			err = c.peers.Write(to, &Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: what, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
 		case PEERS:
-			err = c.peers.Write(to, &Message{Rank: c.rank, Addr: c.addr, Type: what})
+			err = c.peers.Write(to, &Message{Rank: c.rank, Addr: c.addr, Type: what, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
 		default:
-			err = c.peers.Write(to, &Message{Rank: c.rank, Addr: c.addr, Type: what})
+			err = c.peers.Write(to, &Message{Rank: c.rank, Addr: c.addr, Type: what, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
@@ -188,23 +188,23 @@ func (c *Captain) SendOneShot(addr string, msg int) error {
 	for attempts := 0; ; attempts++ {
 		switch msg {
 		case PEERLIST:
-			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Peers: c.peers.PeerData(), Type: msg})
+			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Peers: c.peers.PeerData(), Type: msg, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
 		case LEADER:
 			log.Infof("[LEADER] informing %s of leader %s %d", addr, c.LeaderAddress(), c.LeaderRank())
-			err = encoder.Encode(&Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: msg})
+			err = encoder.Encode(&Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: msg, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
 		case PEERS:
-			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Type: msg})
+			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Type: msg, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
 		default:
-			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Type: msg})
+			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Type: msg, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
@@ -221,7 +221,7 @@ func (c *Captain) SendOneShot(addr string, msg int) error {
 			return fmt.Errorf("connect: %v", err)
 		}
 		encoder := gob.NewEncoder(sock)
-		err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Peers: nil, Type: WHOISLEADER})
+		err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Peers: nil, Type: WHOISLEADER, CallSign: c.callsign})
 		if err != nil {
 			return err
 		}

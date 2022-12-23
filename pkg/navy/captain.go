@@ -12,13 +12,14 @@ import (
 // NOTE: All connections to `Peer`s are established during this function.
 //
 // NOTE: The `proto` value can be one of this list: `tcp`, `tcp4`, `tcp6`.
-func NewCaptain(rank int, addr, proto string, ready bool, fleet string, peers map[int]string) (*Captain, error) {
+func NewCaptain(rank int, addr, proto, fleet, callsign string, ready bool, peers map[int]string) (*Captain, error) {
 	c := &Captain{
 		rank:         rank,
 		addr:         addr,
 		proto:        proto,
 		Ready:        ready,
 		fleet:        fleet,
+		callsign:     callsign,
 		peers:        NewPeerMap(),
 		mu:           &sync.RWMutex{},
 		electionChan: make(chan Message, 1),
