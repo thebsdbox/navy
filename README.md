@@ -13,7 +13,7 @@ This are terms I made up that are obviously going to be naval themed!
 - `Rank`, the relative importance of a fleet member
 - `Fleet`, a collection of members
 
-### Architecture
+### Architecture
 
 When a member starts, they can be given the ready flag, meaning that an election will take place (ultimately promoting them to `Admiral`). Once the fleet has been established, other members can then join that fleet as a `Captain` and begin the process of electing a new `Admiral`. The election is performed based upon the rank of a captain, the higher their rank the more likely they are to be promored to the `Admiral`. 
 
