@@ -25,6 +25,7 @@ type Captain struct {
 	leaderRank   int
 	Ready        bool
 	fleet        string
+	callsign     string
 	peers        Peers
 	mu           *sync.RWMutex
 	receiveChan  chan Message
@@ -157,6 +158,13 @@ func (c *Captain) Run(workFunc func()) {
 
 		case WHOISLEADER:
 			log.Infof("[WHOISLEADER] from [%s %d]", msg.Addr, msg.Rank)
+			if msg.CallSign != c.callsign {
+				err := c.SendOneShot(msg.Addr, UNKNOWN)
+				if err != nil {
+					log.Error(err)
+				}
+			}
+
 			err := c.SendOneShot(msg.Addr, LEADER)
 			if err != nil {
 				log.Error(err)
@@ -169,7 +177,8 @@ func (c *Captain) Run(workFunc func()) {
 			if err != nil {
 				log.Error(err)
 			}
-
+		case UNKNOWN:
+			log.Fatalf("[UNKNOWN] this peer has the wrong callsign for the fleet from [%s %d]", msg.Addr, msg.Rank)
 		default:
 			log.Warnf("Unknown message [%d]", msg.Type)
 
