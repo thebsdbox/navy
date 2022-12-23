@@ -12,6 +12,7 @@ This are terms I made up that are obviously going to be naval themed!
 - `Captain`, a member of the fleet
 - `Rank`, the relative importance of a fleet member
 - `Fleet`, a collection of members
+- `CallSign`, disignates a fleet (only the correct callsign will allow communication with the fleet)
 
 ### Architecture
 
