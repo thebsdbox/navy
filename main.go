@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -52,13 +53,30 @@ func main() {
 		log.Fatal(err)
 	}
 
+	file, err := os.OpenFile("/tmp/navy", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	if err != nil {
+		log.Fatalf("Could not open /tmp/navy")
+		return
+	}
+
+	defer file.Close()
+
 	promotedFunc := func() {
 		log.Info("Im the Admiral")
-
+		_, err = file.WriteString(fmt.Sprintf("-> %d\n", *rank))
+		if err != nil {
+			log.Fatalf("Could write to /tmp/navy [%v]", err)
+			return
+		}
 	}
 	demotionFunc := func() {
 		log.Info("I've been demoted to Captain'")
-
+		_, err = file.WriteString(fmt.Sprintf("<- %d\n", *rank))
+		if err != nil {
+			log.Fatalf("Could write to /tmp/navy [%v]", err)
+			return
+		}
 	}
 
 	b.OnPromotion(promotedFunc)

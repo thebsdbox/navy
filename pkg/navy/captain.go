@@ -2,7 +2,10 @@ package navy
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -37,7 +40,20 @@ func NewCaptain(rank int, addr, proto, fleet, callsign string, ready bool, peers
 		}
 	}
 	c.Connect(proto, peers)
+	c.DemoteOnQuit()
 	return c, nil
+}
+
+func (c *Captain) DemoteOnQuit() {
+	s := make(chan os.Signal)
+	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-s
+		if c.demoted != nil {
+			c.demoted()
+			os.Exit(0)
+		}
+	}()
 }
 
 func (c *Captain) OnPromotion(promotion func()) {

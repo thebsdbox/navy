@@ -167,13 +167,12 @@ func (c *Captain) Run(workFunc func()) {
 				if err != nil {
 					log.Error(err)
 				}
+			} else {
+				err := c.SendOneShot(msg.Addr, LEADER)
+				if err != nil {
+					log.Error(err)
+				}
 			}
-
-			err := c.SendOneShot(msg.Addr, LEADER)
-			if err != nil {
-				log.Error(err)
-			}
-
 		case PEERS:
 			log.Infof("[PEERS] from [%s %d]", msg.Addr, msg.Rank)
 
