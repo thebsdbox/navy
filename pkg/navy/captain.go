@@ -82,7 +82,6 @@ func (c *Captain) ResetLeader(Addr string, rank int) {
 	c.leaderAddr = c.addr
 
 	for _, peer := range c.peers.PeerData() {
-		log.Infof("%v", peer)
 		if peer.Rank > c.leaderRank {
 			c.leaderRank = peer.Rank
 			c.leaderAddr = peer.Addr

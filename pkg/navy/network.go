@@ -88,8 +88,9 @@ func (c *Captain) Listen(proto, addr string) error {
 //
 // NOTE: In the case `ID` already exists in `c.peers`, the new connection
 // replaces the old one.
-func (c *Captain) connect(proto, addr string, ID int) error {
-	if c.peers.Find(ID) {
+func (c *Captain) connect(proto, addr string, rank int) error {
+	if c.peers.Find(rank) {
+		log.Debugf("[CONNECT] member already exists [%d]", rank)
 		return nil
 	}
 	log.Debugf("[CONNECT] -> [%s]", addr)
@@ -101,7 +102,7 @@ func (c *Captain) connect(proto, addr string, ID int) error {
 	if err != nil {
 		return fmt.Errorf("connect: %v", err)
 	}
-	c.peers.Add(ID, addr, sock)
+	c.peers.Add(rank, addr, sock)
 	return nil
 }
 
@@ -125,6 +126,7 @@ func (c *Captain) Connect(proto string, peers map[int]string) {
 func (c *Captain) Send(to int, addr string, what int) error {
 
 	if !c.peers.Find(to) {
+		log.Debugf("[SEND] Didn't find [%d]", to)
 		err := c.connect("tcp4", addr, to)
 		if err != nil {
 			log.Error(err)
@@ -220,11 +222,7 @@ func (c *Captain) SendOneShot(addr string, msg int) error {
 		if err != nil {
 			return fmt.Errorf("connect: %v", err)
 		}
-		encoder := gob.NewEncoder(sock)
-		err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Peers: nil, Type: WHOISLEADER, CallSign: c.callsign})
-		if err != nil {
-			return err
-		}
+		encoder = gob.NewEncoder(sock)
 		time.Sleep(10 * time.Millisecond)
 	}
 	return nil
