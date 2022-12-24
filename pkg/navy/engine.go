@@ -37,13 +37,14 @@ type Captain struct {
 
 // Elect handles the leader election mechanism of the `Bully algorithm`.
 func (c *Captain) Elect() {
+	log.Debugf("[ELECTION] Current Rank %d, Peers: %v", c.rank, c.peers.PeerData())
 	for _, peers := range c.peers.PeerData() {
-		if peers.Rank > c.rank {
-			err := c.Send(peers.Rank, peers.Addr, ELECTION)
-			if err != nil {
-				log.Error(err)
-			}
+		//if peers.Rank > c.rank {
+		err := c.Send(peers.Rank, peers.Addr, ELECTION)
+		if err != nil {
+			log.Error(err)
 		}
+		//}
 	}
 
 	select {
@@ -98,9 +99,13 @@ func (c *Captain) Discover() error {
 					// Stop loopback connections
 					if msg.Peers[x].Addr != c.addr && msg.Peers[x].Rank != c.rank {
 						c.connect(c.proto, msg.Peers[x].Addr, msg.Peers[x].Rank)
+						err := c.Send(msg.Peers[x].Rank, msg.Peers[x].Addr, READY)
+						if err != nil {
+							log.Error(err)
+						}
 					}
 				}
-				log.Debugf("Peers: %v", c.peers.PeerData())
+				log.Debugf("[PEERS] %v", c.peers.PeerData())
 				c.Ready = true
 				//c.Elect()
 				return nil
@@ -144,7 +149,6 @@ func (c *Captain) Run(workFunc func()) {
 			if c.Ready {
 				if msg.Rank < c.rank {
 					log.Warnf("[ELECTION] new election [%s %d]", msg.Addr, msg.Rank)
-
 					err := c.Send(msg.Rank, msg.Addr, OK)
 					if err != nil {
 						log.Error(err)
@@ -153,7 +157,7 @@ func (c *Captain) Run(workFunc func()) {
 				}
 			}
 		case ADMIRAL:
-			log.Warnf("[ELECTION] setting new leader [%s %d]", msg.Addr, msg.Rank)
+			log.Infof("[ELECTION] setting new leader [%s %d]", msg.Addr, msg.Rank)
 			c.SetLeader(msg.Addr, msg.Rank)
 
 		case WHOISLEADER:
@@ -177,6 +181,9 @@ func (c *Captain) Run(workFunc func()) {
 			if err != nil {
 				log.Error(err)
 			}
+		case READY:
+			log.Debugf("[READY] member [%s / %d]", msg.Addr, msg.Rank)
+			c.connect(c.proto, msg.Addr, msg.Rank)
 		case UNKNOWN:
 			log.Fatalf("[UNKNOWN] this peer has the wrong callsign for the fleet from [%s %d]", msg.Addr, msg.Rank)
 		default:

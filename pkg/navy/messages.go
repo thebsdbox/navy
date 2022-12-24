@@ -9,6 +9,7 @@ const (
 	LEADER      // existing member (sends leader) to discover client
 	PEERS       // discover client asks leader
 	PEERLIST    // leader deliver peers
+	READY       // node is ready
 	UNKNOWN     // don't recognise the callsign
 	CLOSE
 )
@@ -18,7 +19,6 @@ type Message struct {
 	Rank     int
 	Addr     string
 	Type     int
-	Origin   string
 	CallSign string
 	Peers    []struct {
 		Rank  int
