@@ -75,6 +75,8 @@ func (c *Captain) Discover() error {
 		return err
 	}
 	for msg := range c.discoverChan {
+		// format, _ := json.MarshalIndent(msg, "", "   ")
+		// log.Debugf("%s", format)
 		switch msg.Type {
 		case LEADER:
 			// We've recieved the leader
@@ -110,6 +112,8 @@ func (c *Captain) Discover() error {
 				//c.Elect()
 				return nil
 			}
+		case UNKNOWN:
+			log.Fatalf("[UNKNOWN] this peer has the wrong callsign for the fleet from [%s %d]", msg.Addr, msg.Rank)
 		}
 	}
 	return nil
@@ -143,7 +147,8 @@ func (c *Captain) Run(workFunc func()) {
 	}
 
 	for msg := range c.receiveChan {
-
+		// format, _ := json.MarshalIndent(msg, "", "   ")
+		// log.Debugf("%s", format)
 		switch msg.Type {
 		case ELECTION:
 			if c.Ready {
@@ -161,13 +166,14 @@ func (c *Captain) Run(workFunc func()) {
 			c.SetLeader(msg.Addr, msg.Rank)
 
 		case WHOISLEADER:
-			log.Infof("[WHOISLEADER] from [%s %d]", msg.Addr, msg.Rank)
 			if msg.CallSign != c.callsign {
+				log.Warnf("[WHOISLEADER] unknown callsign from [%s %d]", msg.Addr, msg.Rank)
 				err := c.SendOneShot(msg.Addr, UNKNOWN)
 				if err != nil {
 					log.Error(err)
 				}
 			} else {
+				log.Infof("[WHOISLEADER] from [%s %d]", msg.Addr, msg.Rank)
 				err := c.SendOneShot(msg.Addr, LEADER)
 				if err != nil {
 					log.Error(err)
@@ -183,8 +189,6 @@ func (c *Captain) Run(workFunc func()) {
 		case READY:
 			log.Debugf("[READY] member [%s / %d]", msg.Addr, msg.Rank)
 			c.connect(c.proto, msg.Addr, msg.Rank)
-		case UNKNOWN:
-			log.Fatalf("[UNKNOWN] this peer has the wrong callsign for the fleet from [%s %d]", msg.Addr, msg.Rank)
 		default:
 			log.Warnf("Unknown message [%d]", msg.Type)
 
