@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thebsdbox/navy/pkg/navy"
@@ -52,13 +54,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	promotedFunc := func() {
-		log.Info("Im the Admiral")
+	file, err := os.OpenFile("/tmp/navy", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
+	if err != nil {
+		log.Fatalf("Could not open /tmp/navy")
+		return
 	}
-	demotionFunc := func() {
-		log.Info("I've been demoted to Captain'")
 
+	defer file.Close()
+	promotedFunc := func() {
+		fmt.Printf("%s -> %d\n", time.Now().Format("15:04:05"), *rank)
+	}
+
+	demotionFunc := func() {
+		fmt.Printf("%s <- %d\n", time.Now().Format("15:04:05"), *rank)
 	}
 
 	b.OnPromotion(promotedFunc)

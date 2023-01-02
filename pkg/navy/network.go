@@ -21,7 +21,6 @@ func (c *Captain) receive(rwc io.ReadCloser) {
 	dec := gob.NewDecoder(rwc)
 	for {
 		if err := dec.Decode(&msg); err == io.EOF || msg.Type == CLOSE {
-			//log.Debugf("%v", msg)
 			_ = rwc.Close()
 			//check if this is an actual peer
 			if c.peers.Find(msg.Rank) {
@@ -43,7 +42,7 @@ func (c *Captain) receive(rwc io.ReadCloser) {
 			case <-time.After(200 * time.Millisecond):
 				continue
 			}
-		} else if msg.Type == LEADER || msg.Type == PEERLIST {
+		} else if msg.Type == LEADER || msg.Type == PEERLIST || msg.Type == UNKNOWN {
 			c.discoverChan <- msg
 		} else {
 			c.receiveChan <- msg
@@ -201,6 +200,13 @@ func (c *Captain) SendOneShot(addr string, msg int) error {
 				log.Error(err)
 			}
 		case PEERS:
+			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Type: msg, CallSign: c.callsign})
+			if err != nil {
+				log.Error(err)
+			}
+		case UNKNOWN:
+			log.Infof("[UNKNOWN] informing %s of leader %s %d", addr, c.LeaderAddress(), c.LeaderRank())
+
 			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Type: msg, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
