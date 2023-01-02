@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thebsdbox/navy/pkg/navy"
@@ -61,22 +62,12 @@ func main() {
 	}
 
 	defer file.Close()
-
 	promotedFunc := func() {
-		log.Info("Im the Admiral")
-		_, err = file.WriteString(fmt.Sprintf("-> %d\n", *rank))
-		if err != nil {
-			log.Fatalf("Could write to /tmp/navy [%v]", err)
-			return
-		}
+		fmt.Printf("%s -> %d\n", time.Now().Format("15:04:05"), *rank)
 	}
+
 	demotionFunc := func() {
-		log.Info("I've been demoted to Captain'")
-		_, err = file.WriteString(fmt.Sprintf("<- %d\n", *rank))
-		if err != nil {
-			log.Fatalf("Could write to /tmp/navy [%v]", err)
-			return
-		}
+		fmt.Printf("%s <- %d\n", time.Now().Format("15:04:05"), *rank)
 	}
 
 	b.OnPromotion(promotedFunc)
