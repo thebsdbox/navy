@@ -48,10 +48,14 @@ func main() {
 
 	// Start the new member (captain)
 	log.Infof("Listenting on [%s]", *addr)
+	var members []string
+	if *fleet != "" {
+		members = strings.Split(*fleet, ",")
+	}
 
-	b, err := navy.NewCaptain(*rank, *addr, "tcp4", *fleet, *callsign, *ready, remotePeers)
+	b, err := navy.NewCaptain(*rank, *addr, "tcp4", *callsign, members, *ready, remotePeers)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Creating new captain [%v]", err)
 	}
 
 	file, err := os.OpenFile("/tmp/navy", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -73,5 +77,8 @@ func main() {
 	b.OnPromotion(promotedFunc)
 	b.OnDemotion(demotionFunc)
 
-	b.Run(nil)
+	err = b.Run(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

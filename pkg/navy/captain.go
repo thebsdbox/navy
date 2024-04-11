@@ -6,8 +6,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // NewCaptain returns a new `Captain` or an `error`.
@@ -15,7 +13,7 @@ import (
 // NOTE: All connections to `Peer`s are established during this function.
 //
 // NOTE: The `proto` value can be one of this list: `tcp`, `tcp4`, `tcp6`.
-func NewCaptain(rank int, addr, proto, fleet, callsign string, ready bool, peers map[int]string) (*Captain, error) {
+func NewCaptain(rank int, addr, proto, callsign string, fleet []string, ready bool, peers map[int]string) (*Captain, error) {
 	c := &Captain{
 		rank:         rank,
 		addr:         addr,
@@ -33,10 +31,11 @@ func NewCaptain(rank int, addr, proto, fleet, callsign string, ready bool, peers
 	if err := c.Listen(proto, addr); err != nil {
 		return nil, fmt.Errorf("new: %v", err)
 	}
-	if fleet != "" {
+
+	if len(fleet) != 0 {
 		err := c.Discover()
 		if err != nil {
-			log.Fatal(err)
+			return nil, fmt.Errorf("discovery failure [%v]", err)
 		}
 	}
 	c.Connect(proto, peers)
@@ -45,7 +44,7 @@ func NewCaptain(rank int, addr, proto, fleet, callsign string, ready bool, peers
 }
 
 func (c *Captain) DemoteOnQuit() {
-	s := make(chan os.Signal)
+	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-s

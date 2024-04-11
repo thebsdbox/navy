@@ -16,7 +16,7 @@ import (
 type Peers interface {
 	Add(rank int, addr string, fd io.Writer)
 	Delete(rank int)
-	Find(rank int) bool
+	Find(Peer) bool
 	Write(rank int, msg interface{}) error
 	PeerData() []struct {
 		Rank  int
@@ -59,12 +59,18 @@ func (pm *PeerMap) Delete(rank int) {
 // Find returns `true` if `pm.peers[ID]` exists, `false` otherwise.
 //
 // NOTE: This function is thread-safe.
-func (pm *PeerMap) Find(rank int) bool {
+func (pm *PeerMap) Find(p Peer) bool {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
-	_, ok := pm.peers[rank]
-	return ok
+	foundp := pm.peers[p.rank]
+	if foundp == nil {
+		return false
+	}
+	if foundp.addr == p.addr && foundp.rank == p.rank {
+		return true
+	}
+	return false
 }
 
 // Write writes `msg` to `pm.peers[ID]`. It returns `nil` or an `error` if

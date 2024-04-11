@@ -20,11 +20,13 @@ func (c *Captain) receive(rwc io.ReadCloser) {
 	var msg Message
 	dec := gob.NewDecoder(rwc)
 	for {
-		if err := dec.Decode(&msg); err == io.EOF || msg.Type == CLOSE {
+		err := dec.Decode(&msg)
+		//log.Debugf("[ONESHOT] [%t] MsgType [%d] err [%v]", msg.OneShot, msg.Type, err)
+		if err == io.EOF || msg.Type == CLOSE {
 			_ = rwc.Close()
 			//check if this is an actual peer
-			if c.peers.Find(msg.Rank) {
-				log.Warnf("[PEER] lost [%s] ID [%d]", msg.Addr, msg.Rank)
+			if c.peers.Find(Peer{addr: msg.Addr, rank: msg.Rank}) {
+				log.Warnf("[PEER] lost [%s] Rank [%d] leaderRank [%d]", msg.Addr, msg.Rank, c.LeaderRank())
 				c.peers.Delete(msg.Rank)
 				// Check if this peer was the leader!
 				if msg.Rank == c.LeaderRank() {
@@ -42,7 +44,7 @@ func (c *Captain) receive(rwc io.ReadCloser) {
 			case <-time.After(200 * time.Millisecond):
 				continue
 			}
-		} else if msg.Type == LEADER || msg.Type == PEERLIST || msg.Type == UNKNOWN {
+		} else if msg.Type == LEADER || msg.Type == PEERLIST || msg.Type == UNREADY || msg.Type == UNKNOWN {
 			c.discoverChan <- msg
 		} else {
 			c.receiveChan <- msg
@@ -88,7 +90,7 @@ func (c *Captain) Listen(proto, addr string) error {
 // NOTE: In the case `ID` already exists in `c.peers`, the new connection
 // replaces the old one.
 func (c *Captain) connect(proto, addr string, rank int) error {
-	if c.peers.Find(rank) {
+	if c.peers.Find(Peer{addr: addr, rank: rank}) {
 		log.Debugf("[CONNECT] member already exists [%d]", rank)
 		return nil
 	}
@@ -102,6 +104,7 @@ func (c *Captain) connect(proto, addr string, rank int) error {
 		return fmt.Errorf("connect: %v", err)
 	}
 	c.peers.Add(rank, addr, sock)
+	log.Debugf("[PEERLIST] %v", c.peers.PeerData())
 	return nil
 }
 
@@ -122,36 +125,36 @@ func (c *Captain) Connect(proto string, peers map[int]string) {
 // `addr`. If no connection is reachable at `addr` or if `c.peer[to]` does not
 // exist, the function retries five times and returns an `error` if it does not
 // succeed.
-func (c *Captain) Send(to int, addr string, what int) error {
+func (c *Captain) Send(rank int, addr string, msg int) error {
 
-	if !c.peers.Find(to) {
-		log.Debugf("[SEND] Didn't find [%d]", to)
-		err := c.connect("tcp4", addr, to)
+	if !c.peers.Find(Peer{addr: addr, rank: rank}) {
+		log.Debugf("[SEND] Didn't find [%d]", rank)
+		err := c.connect("tcp4", addr, rank)
 		if err != nil {
 			log.Error(err)
 		}
 	}
 	var err error
 	for attempts := 0; ; attempts++ {
-		switch what {
+		switch msg {
 		case PEERLIST:
-			err = c.peers.Write(to, &Message{Rank: c.rank, Addr: c.addr, Peers: c.peers.PeerData(), Type: what, CallSign: c.callsign})
+			err = c.peers.Write(rank, &Message{Rank: c.rank, Addr: c.addr, Peers: c.peers.PeerData(), Type: msg, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
 		case LEADER:
 			log.Infof("[LEADER] informing %s of leader %s %d", addr, c.LeaderAddress(), c.LeaderRank())
-			err = c.peers.Write(to, &Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: what, CallSign: c.callsign})
+			err = c.peers.Write(rank, &Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: msg, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
 		case PEERS:
-			err = c.peers.Write(to, &Message{Rank: c.rank, Addr: c.addr, Type: what, CallSign: c.callsign})
+			err = c.peers.Write(rank, &Message{Rank: c.rank, Addr: c.addr, Type: msg, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
 		default:
-			err = c.peers.Write(to, &Message{Rank: c.rank, Addr: c.addr, Type: what, CallSign: c.callsign})
+			err = c.peers.Write(rank, &Message{Rank: c.rank, Addr: c.addr, Type: msg, CallSign: c.callsign})
 			if err != nil {
 				log.Error(err)
 			}
@@ -163,7 +166,7 @@ func (c *Captain) Send(to int, addr string, what int) error {
 		if attempts > maxRetries && err != nil {
 			return fmt.Errorf("Send: %v", err)
 		}
-		err = c.connect("tcp4", addr, to)
+		err = c.connect("tcp4", addr, rank)
 		if err != nil {
 			log.Error(err)
 		}
@@ -189,18 +192,26 @@ func (c *Captain) SendOneShot(addr string, msg int) error {
 	for attempts := 0; ; attempts++ {
 		switch msg {
 		case PEERLIST:
-			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Peers: c.peers.PeerData(), Type: msg, CallSign: c.callsign})
+			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Peers: c.peers.PeerData(), Type: msg, CallSign: c.callsign, OneShot: true})
 			if err != nil {
 				log.Error(err)
 			}
 		case LEADER:
-			log.Infof("[LEADER] informing %s of leader %s %d", addr, c.LeaderAddress(), c.LeaderRank())
-			err = encoder.Encode(&Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: msg, CallSign: c.callsign})
-			if err != nil {
-				log.Error(err)
+			if c.LeaderAddress() == "" {
+				log.Warnf("[LEADER] unable to informing [%s] of a LEADER as one currently doesn't exist", addr)
+				err = encoder.Encode(&Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: UNREADY, CallSign: c.callsign, OneShot: true})
+				if err != nil {
+					log.Error(err)
+				}
+			} else {
+				log.Infof("[LEADER] informing %s of leader %s %d", addr, c.LeaderAddress(), c.LeaderRank())
+				err = encoder.Encode(&Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: msg, CallSign: c.callsign, OneShot: true})
+				if err != nil {
+					log.Error(err)
+				}
 			}
 		case PEERS:
-			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Type: msg, CallSign: c.callsign})
+			err = encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Type: msg, CallSign: c.callsign, OneShot: true})
 			if err != nil {
 				log.Error(err)
 			}
@@ -229,7 +240,8 @@ func (c *Captain) SendOneShot(addr string, msg int) error {
 			return fmt.Errorf("connect: %v", err)
 		}
 		encoder = gob.NewEncoder(sock)
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
-	return nil
+	// Send a close message as this is a oneshot
+	return encoder.Encode(&Message{Rank: c.rank, Addr: c.addr, Type: CLOSE, CallSign: c.callsign})
 }

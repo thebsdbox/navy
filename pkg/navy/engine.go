@@ -24,7 +24,7 @@ type Captain struct {
 	leaderAddr   string
 	leaderRank   int
 	Ready        bool
-	fleet        string
+	fleet        []string
 	callsign     string
 	peers        Peers
 	mu           *sync.RWMutex
@@ -65,15 +65,22 @@ func (c *Captain) Elect() {
 
 // Discover will discover the cluster
 func (c *Captain) Discover() error {
-	if c.fleet == "" {
+	if len(c.fleet) == 0 {
 		return fmt.Errorf("[Discover] No Fleet address")
 	}
 
-	// Ask the seed, who is the current leader
-	err := c.SendOneShot(c.fleet, WHOISLEADER)
+	var err error
+	for member := range c.fleet {
+		// Ask the seed, who is the current leader
+		err = c.SendOneShot(c.fleet[member], WHOISLEADER)
+		if err == nil {
+			break // we've got one
+		}
+	}
 	if err != nil {
 		return err
 	}
+
 	for msg := range c.discoverChan {
 		// format, _ := json.MarshalIndent(msg, "", "   ")
 		// log.Debugf("%s", format)
@@ -93,14 +100,20 @@ func (c *Captain) Discover() error {
 			// We should recieve the peer list for the current leader
 			log.Infof("[PEERLIST] from [%s %d]", msg.Addr, msg.Rank)
 			// Add the leader as a peer
-			c.connect(c.proto, msg.Addr, msg.Rank)
+			err = c.connect(c.proto, msg.Addr, msg.Rank)
+			if err != nil {
+				return err
+			}
 			if c.LeaderRank() != msg.Rank {
 				log.Errorf("Ignoring peers from [%s]", msg.Addr)
 			} else {
 				for x := range msg.Peers {
 					// Stop loopback connections
 					if msg.Peers[x].Addr != c.addr && msg.Peers[x].Rank != c.rank {
-						c.connect(c.proto, msg.Peers[x].Addr, msg.Peers[x].Rank)
+						err = c.connect(c.proto, msg.Peers[x].Addr, msg.Peers[x].Rank)
+						if err != nil {
+							return err
+						}
 						err := c.Send(msg.Peers[x].Rank, msg.Peers[x].Addr, READY)
 						if err != nil {
 							log.Error(err)
@@ -112,6 +125,8 @@ func (c *Captain) Discover() error {
 				//c.Elect()
 				return nil
 			}
+		case UNREADY:
+			log.Warnf("[UNREADY] no leader currently exists in the cluster from [%s]", msg.Addr)
 		case UNKNOWN:
 			log.Fatalf("[UNKNOWN] this peer has the wrong callsign for the fleet from [%s %d]", msg.Addr, msg.Rank)
 		}
@@ -123,7 +138,7 @@ func (c *Captain) Discover() error {
 // execution of `workFunc` while the other one is the `Bully algorithm`.
 //
 // NOTE: This function is an infinite loop.
-func (c *Captain) Run(workFunc func()) {
+func (c *Captain) Run(workFunc func()) error {
 	// Additional callback if needed
 	if workFunc != nil {
 		go workFunc()
@@ -188,11 +203,15 @@ func (c *Captain) Run(workFunc func()) {
 			}
 		case READY:
 			log.Debugf("[READY] member [%s / %d]", msg.Addr, msg.Rank)
-			c.connect(c.proto, msg.Addr, msg.Rank)
+			err := c.connect(c.proto, msg.Addr, msg.Rank)
+			if err != nil {
+				return err
+			}
 		default:
 			log.Warnf("Unknown message [%d]", msg.Type)
 
 		}
 
 	}
+	return nil
 }
