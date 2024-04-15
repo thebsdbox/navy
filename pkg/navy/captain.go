@@ -13,10 +13,11 @@ import (
 // NOTE: All connections to `Peer`s are established during this function.
 //
 // NOTE: The `proto` value can be one of this list: `tcp`, `tcp4`, `tcp6`.
-func NewCaptain(rank int, addr, proto, callsign string, fleet []string, ready bool, peers map[int]string) (*Captain, error) {
+func NewCaptain(rank int, bindaddr, extaddr, proto, callsign string, fleet []string, ready bool, peers map[int]string) (*Captain, error) {
 	c := &Captain{
 		rank:         rank,
-		addr:         addr,
+		bindaddr:     bindaddr,
+		extaddr:      extaddr,
 		proto:        proto,
 		Ready:        ready,
 		fleet:        fleet,
@@ -28,7 +29,12 @@ func NewCaptain(rank int, addr, proto, callsign string, fleet []string, ready bo
 		discoverChan: make(chan Message),
 	}
 
-	if err := c.Listen(proto, addr); err != nil {
+	// if the external address is left blank then default to using the binded address
+	if extaddr == "" {
+		c.extaddr = c.bindaddr
+	}
+
+	if err := c.Listen(proto, bindaddr); err != nil {
 		return nil, fmt.Errorf("new: %v", err)
 	}
 
@@ -94,7 +100,7 @@ func (c *Captain) ResetLeader(Addr string, rank int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.leaderRank = c.rank
-	c.leaderAddr = c.addr
+	c.leaderAddr = c.extaddr
 
 	for _, peer := range c.peers.PeerData() {
 		if peer.Rank > c.leaderRank {

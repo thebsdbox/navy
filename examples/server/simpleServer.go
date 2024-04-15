@@ -14,7 +14,8 @@ import (
 
 func main() {
 	log.SetLevel(log.DebugLevel)
-	addr := flag.String("address", "0.0.0.0:9990", "The address of a peer and port")
+	bindaddr := flag.String("address", "0.0.0.0:9990", "The address of a peer and port")
+	extadd := flag.String("externalAddress", "", "An external address to use as the peer address")
 	rank := flag.Int("rank", 0, "The rank of a peer")
 	ready := flag.Bool("ready", false, "Set this instance to ready")
 	peers := flag.String("peers", "", "A comma seperated list of peers, each peer should be <rank>:<ADDRESS>:<PORT>")
@@ -47,13 +48,13 @@ func main() {
 	}
 
 	// Start the new member (captain)
-	log.Infof("Listenting on [%s]", *addr)
+	log.Infof("Listenting on [%s]", *bindaddr)
 	var members []string
 	if *fleet != "" {
 		members = strings.Split(*fleet, ",")
 	}
 
-	b, err := navy.NewCaptain(*rank, *addr, "tcp4", *callsign, members, *ready, remotePeers)
+	b, err := navy.NewCaptain(*rank, *bindaddr, *extadd, "tcp4", *callsign, members, *ready, remotePeers)
 	if err != nil {
 		log.Fatalf("Creating new captain [%v]", err)
 	}

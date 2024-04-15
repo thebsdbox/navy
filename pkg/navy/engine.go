@@ -19,7 +19,8 @@ type Captain struct {
 	*net.TCPListener
 
 	rank         int
-	addr         string
+	bindaddr     string
+	extaddr      string
 	proto        string
 	leaderAddr   string
 	leaderRank   int
@@ -51,9 +52,9 @@ func (c *Captain) Elect() {
 	case <-c.electionChan:
 		return
 	case <-time.After(time.Second):
-		c.SetLeader(c.addr, c.rank)
+		c.SetLeader(c.extaddr, c.rank)
 		for _, peers := range c.peers.PeerData() {
-			log.Infof("[ELECTION] leader [%s], informing [%s]", c.addr, peers.Addr)
+			log.Infof("[ELECTION] leader [%s], informing [%s]", c.extaddr, peers.Addr)
 			err := c.Send(peers.Rank, peers.Addr, ADMIRAL)
 			if err != nil {
 				log.Error(err)
@@ -109,7 +110,7 @@ func (c *Captain) Discover() error {
 			} else {
 				for x := range msg.Peers {
 					// Stop loopback connections
-					if msg.Peers[x].Addr != c.addr && msg.Peers[x].Rank != c.rank {
+					if msg.Peers[x].Addr != c.extaddr && msg.Peers[x].Rank != c.rank {
 						err = c.connect(c.proto, msg.Peers[x].Addr, msg.Peers[x].Rank)
 						if err != nil {
 							return err
