@@ -23,6 +23,8 @@ func main() {
 	callsign := flag.String("callsign", "", "The address of an existing fleet member")
 
 	logLevel := flag.Int("log", 4, "The level of logging, (set to 5 for debug logs)")
+
+	timeout := flag.Int("timeout", 0, "How long to wait before resigning from the fleet")
 	//Parse the flags
 	flag.Parse()
 
@@ -75,6 +77,15 @@ func main() {
 		fmt.Printf("%s <- %d\n", time.Now().Format("15:04:05"), *rank)
 	}
 
+	if *timeout != 0 {
+		go func() {
+			time.Sleep(time.Duration(*timeout) * time.Second)
+			fmt.Println("Reached the timeout, resigning")
+
+			b.Resign()
+			//b.SetRank(10)
+		}()
+	}
 	b.OnPromotion(promotedFunc)
 	b.OnDemotion(demotionFunc)
 

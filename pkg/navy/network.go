@@ -21,7 +21,7 @@ func (c *Captain) receive(rwc io.ReadCloser) {
 	dec := gob.NewDecoder(rwc)
 	for {
 		err := dec.Decode(&msg)
-		//log.Debugf("[ONESHOT] [%t] MsgType [%d] err [%v]", msg.OneShot, msg.Type, err)
+		log.Debugf("[ONESHOT] [%t] MsgType [%d] err [%v]", msg.OneShot, msg.Type, err)
 		if err == io.EOF || msg.Type == CLOSE {
 			_ = rwc.Close()
 			//check if this is an actual peer
@@ -29,7 +29,7 @@ func (c *Captain) receive(rwc io.ReadCloser) {
 				log.Warnf("[PEER] lost [%s] Rank [%d] leaderRank [%d]", msg.Addr, msg.Rank, c.LeaderRank())
 				c.peers.Delete(msg.Rank)
 				// Check if this peer was the leader!
-				if msg.Rank == c.LeaderRank() {
+				if msg.Rank >= c.LeaderRank() {
 					log.Errorf("[LEADER] lost [%s] ID [%d]", msg.Addr, msg.Rank)
 					c.ResetLeader(msg.Addr, msg.Rank)
 					c.Elect()
@@ -57,13 +57,21 @@ func (c *Captain) receive(rwc io.ReadCloser) {
 //
 // NOTE: this function is an infinite loop.
 func (c *Captain) listen() {
+	defer c.wg.Done()
 	for {
 		conn, err := c.AcceptTCP()
 		if err != nil {
-			log.Printf("listen: %v", err)
-			continue
+			select {
+			case <-c.quit:
+				return
+			default:
+				log.Println("accept error", err)
+			}
+		} else {
+			c.wg.Add(1)
+			go c.receive(conn)
+			c.wg.Done()
 		}
-		go c.receive(conn)
 	}
 }
 
@@ -78,6 +86,7 @@ func (c *Captain) Listen(proto, addr string) error {
 	if err != nil {
 		return fmt.Errorf("Listen: %v", err)
 	}
+	c.wg.Add(1)
 	go c.listen()
 	return nil
 }
@@ -103,7 +112,7 @@ func (c *Captain) connect(proto, addr string, rank int) error {
 	if err != nil {
 		return fmt.Errorf("connect: %v", err)
 	}
-	c.peers.Add(rank, addr, sock)
+	c.peers.Add(rank, addr, sock, sock)
 	log.Debugf("[PEERLIST] %v", c.peers.PeerData())
 	return nil
 }

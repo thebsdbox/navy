@@ -12,7 +12,8 @@ const (
 	READY       // node is ready
 	UNREADY     // cluster is unready (no admiral)
 	UNKNOWN     // don't recognise the callsign
-	CLOSE
+	PROMOTION   // This captain got a promotion
+	CLOSE       // Close the connection
 )
 
 // Message is a `struct` used for communication between `captain`s.

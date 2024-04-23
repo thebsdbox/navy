@@ -3,6 +3,7 @@ package navy
 import (
 	"fmt"
 	"io"
+	"net"
 	"sync"
 )
 
@@ -14,7 +15,7 @@ import (
 // cases fo exemples, although I strongly recommend you provide your own, safer
 // implementation while doing real work.
 type Peers interface {
-	Add(rank int, addr string, fd io.Writer)
+	Add(rank int, addr string, fd io.Writer, conn *net.TCPConn)
 	Delete(rank int)
 	Find(Peer) bool
 	Write(rank int, msg interface{}) error
@@ -40,10 +41,10 @@ func NewPeerMap() *PeerMap {
 // Add creates a new `captain.Peer` and adds it to `pm.peers` using `ID` as a key.
 //
 // NOTE: This function is thread-safe.
-func (pm *PeerMap) Add(rank int, addr string, fd io.Writer) {
+func (pm *PeerMap) Add(rank int, addr string, fd io.Writer, conn *net.TCPConn) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	pm.peers[rank] = NewPeer(rank, addr, fd)
+	pm.peers[rank] = NewPeer(rank, addr, fd, conn)
 }
 
 // Delete erases the `captain.Peer` corresponding to `ID` from `pm.peers`.
@@ -52,6 +53,10 @@ func (pm *PeerMap) Add(rank int, addr string, fd io.Writer) {
 func (pm *PeerMap) Delete(rank int) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
+	peer := pm.peers[rank]
+	if peer.conn != nil {
+		peer.conn.Close()
+	}
 	// close(*net.TCPConn(pm.peers[ID].sock))
 	delete(pm.peers, rank)
 }

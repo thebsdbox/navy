@@ -16,8 +16,14 @@ const maxRetries = 5
 // NOTE: More details about the `Bully algorithm` can be found here
 // https://en.wikipedia.org/wiki/Bully_algorithm .
 type Captain struct {
+	// handle the networking
 	*net.TCPListener
 
+	// handle all of the closing of connections
+	quit chan interface{}
+	wg   sync.WaitGroup
+
+	// cluster confoguration
 	rank         int
 	bindaddr     string
 	extaddr      string
@@ -208,6 +214,9 @@ func (c *Captain) Run(workFunc func()) error {
 			if err != nil {
 				return err
 			}
+		case PROMOTION:
+			log.Debugf("[PROMOTION] member [%s / %d]", msg.Addr, msg.Rank)
+
 		default:
 			log.Warnf("Unknown message [%d]", msg.Type)
 

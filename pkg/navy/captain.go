@@ -6,6 +6,8 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // NewCaptain returns a new `Captain` or an `error`.
@@ -15,6 +17,7 @@ import (
 // NOTE: The `proto` value can be one of this list: `tcp`, `tcp4`, `tcp6`.
 func NewCaptain(rank int, bindaddr, extaddr, proto, callsign string, fleet []string, ready bool, peers map[int]string) (*Captain, error) {
 	c := &Captain{
+		quit:         make(chan interface{}),
 		rank:         rank,
 		bindaddr:     bindaddr,
 		extaddr:      extaddr,
@@ -49,15 +52,24 @@ func NewCaptain(rank int, bindaddr, extaddr, proto, callsign string, fleet []str
 	return c, nil
 }
 
+// func (c *Captain) SetRank(rank int) {
+// 	c.rank = rank
+// 	for _, peers := range c.peers.PeerData() {
+// 		err := c.Send(peers.Rank, peers.Addr, PROMOTION)
+// 		if err != nil {
+// 			log.Error(err)
+// 		}
+// 	}
+// 	c.Elect()
+// }
+
 func (c *Captain) DemoteOnQuit() {
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-s
-		if c.demoted != nil {
-			c.demoted()
-			os.Exit(0)
-		}
+		c.Resign()
+		os.Exit(0)
 	}()
 }
 
@@ -128,4 +140,26 @@ func (c *Captain) LeaderRank() int {
 	defer c.mu.RUnlock()
 
 	return c.leaderRank
+}
+
+func (c *Captain) Resign() {
+	log.Info("[RESIGN] this captain is resigning from the fleet")
+	for _, peers := range c.peers.PeerData() {
+		err := c.Send(peers.Rank, peers.Addr, CLOSE)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
+	// if the demotion funcion is set and we're the leader, then call the demotion function
+	if c.demoted != nil && c.rank == c.leaderRank {
+		c.demoted()
+	}
+	close(c.quit)    // Annouce the quit
+	err := c.Close() // Close the networking
+	if err != nil {
+		log.Error(err)
+	}
+	c.wg.Wait() // wait for all work to complete
+	close(c.receiveChan)
 }
