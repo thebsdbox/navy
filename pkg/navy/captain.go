@@ -15,7 +15,7 @@ import (
 // NOTE: All connections to `Peer`s are established during this function.
 //
 // NOTE: The `proto` value can be one of this list: `tcp`, `tcp4`, `tcp6`.
-func NewCaptain(rank int, bindaddr, extaddr, proto, callsign string, fleet []string, ready bool, peers map[int]string) (*Captain, error) {
+func NewCaptain(rank int, bindaddr, extaddr, proto, callsign string, fleet []string, ready, interupt bool, peers map[int]string) *Captain {
 	c := &Captain{
 		quit:         make(chan interface{}),
 		rank:         rank,
@@ -30,6 +30,7 @@ func NewCaptain(rank int, bindaddr, extaddr, proto, callsign string, fleet []str
 		electionChan: make(chan Message, 1),
 		receiveChan:  make(chan Message),
 		discoverChan: make(chan Message),
+		interupt:     interupt,
 	}
 
 	// if the external address is left blank then default to using the binded address
@@ -37,31 +38,43 @@ func NewCaptain(rank int, bindaddr, extaddr, proto, callsign string, fleet []str
 		c.extaddr = c.bindaddr
 	}
 
-	if err := c.Listen(proto, bindaddr); err != nil {
+	return c
+}
+
+func NewCaptainandGo(rank int, bindaddr, extaddr, proto, callsign string, fleet []string, ready, interupt bool, peers map[int]string) (*Captain, error) {
+
+	c := NewCaptain(rank, bindaddr, extaddr, proto, callsign, fleet, ready, interupt, peers)
+
+	if err := c.Listen(); err != nil {
 		return nil, fmt.Errorf("new: %v", err)
 	}
 
+	// enable the interupt handler
+	if c.interupt {
+		c.DemoteOnQuit()
+	}
+	// Start the loop to handle the responses from the discovery
+
+	// Do basic discovery on the fleet
+
 	if len(fleet) != 0 {
+		//Discover!
+		readyWatcher := make(chan interface{})
+		go c.DiscoverResponse(readyWatcher)
 		err := c.Discover()
 		if err != nil {
 			return nil, fmt.Errorf("discovery failure [%v]", err)
 		}
+		<-readyWatcher
 	}
-	c.Connect(proto, peers)
-	c.DemoteOnQuit()
+
+	// attempt to connect with hardcoded peers
+	if len(peers) != 0 {
+		c.Connect(proto, peers)
+	}
+
 	return c, nil
 }
-
-// func (c *Captain) SetRank(rank int) {
-// 	c.rank = rank
-// 	for _, peers := range c.peers.PeerData() {
-// 		err := c.Send(peers.Rank, peers.Addr, PROMOTION)
-// 		if err != nil {
-// 			log.Error(err)
-// 		}
-// 	}
-// 	c.Elect()
-// }
 
 func (c *Captain) DemoteOnQuit() {
 	s := make(chan os.Signal, 1)
@@ -161,5 +174,8 @@ func (c *Captain) Resign() {
 		log.Error(err)
 	}
 	c.wg.Wait() // wait for all work to complete
+
+	// Stop processing any more messages
+	close(c.discoverChan)
 	close(c.receiveChan)
 }

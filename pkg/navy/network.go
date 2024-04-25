@@ -21,7 +21,7 @@ func (c *Captain) receive(rwc io.ReadCloser) {
 	dec := gob.NewDecoder(rwc)
 	for {
 		err := dec.Decode(&msg)
-		log.Debugf("[ONESHOT] [%t] MsgType [%d] err [%v]", msg.OneShot, msg.Type, err)
+		log.Debugf("[RECEIVE] OneShot [%t] From [%s] Type [%s] err [%v]", msg.OneShot, msg.Addr, MessageStrings[msg.Type], err)
 		if err == io.EOF || msg.Type == CLOSE {
 			_ = rwc.Close()
 			//check if this is an actual peer
@@ -77,12 +77,12 @@ func (c *Captain) listen() {
 
 // Listen makes `b` listens on the address `addr` provided using the protocol
 // `proto` and returns an `error` if something occurs.
-func (c *Captain) Listen(proto, addr string) error {
-	laddr, err := net.ResolveTCPAddr(proto, addr)
+func (c *Captain) Listen() error {
+	laddr, err := net.ResolveTCPAddr(c.proto, c.bindaddr)
 	if err != nil {
 		return fmt.Errorf("Listen: %v", err)
 	}
-	c.TCPListener, err = net.ListenTCP(proto, laddr)
+	c.TCPListener, err = net.ListenTCP(c.proto, laddr)
 	if err != nil {
 		return fmt.Errorf("Listen: %v", err)
 	}
