@@ -56,9 +56,27 @@ func main() {
 		members = strings.Split(*fleet, ",")
 	}
 
-	b, err := navy.NewCaptainandGo(*rank, *bindaddr, *extadd, "tcp4", *callsign, members, *ready, true, remotePeers)
+	c := navy.NewCaptain(*rank, *bindaddr, *extadd, "tcp4", *callsign, members, *ready, true, remotePeers)
+
+	err := c.Listen()
 	if err != nil {
-		log.Fatalf("Creating new captain [%v]", err)
+		log.Fatal(err)
+	}
+
+	// Enable the interupt
+	c.DemoteOnQuit()
+
+	//Discover!
+	readyWatcher := make(chan interface{})
+	go c.DiscoverResponse(readyWatcher)
+	if !c.Ready {
+		log.Info("Attepting to discover the fleet, with a backoff")
+		err = c.DiscoverWithBackoff(navy.Backoff{MaxRetries: 3, Delay: time.Second})
+		if err != nil {
+			log.Fatal(err)
+		}
+		// hang about here until we're ready
+		<-readyWatcher
 	}
 
 	file, err := os.OpenFile("/tmp/navy", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -82,14 +100,14 @@ func main() {
 			time.Sleep(time.Duration(*timeout) * time.Second)
 			fmt.Println("Reached the timeout, resigning")
 
-			b.Resign()
+			c.Resign()
 			//b.SetRank(10)
 		}()
 	}
-	b.OnPromotion(promotedFunc)
-	b.OnDemotion(demotionFunc)
+	c.OnPromotion(promotedFunc)
+	c.OnDemotion(demotionFunc)
 
-	err = b.Run(nil)
+	err = c.Run(nil)
 	if err != nil {
 		log.Fatal(err)
 	}

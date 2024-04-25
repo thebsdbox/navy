@@ -16,6 +16,24 @@ const (
 	CLOSE       // Close the connection
 )
 
+var MessageStrings map[int]string
+
+func init() {
+	MessageStrings = make(map[int]string)
+	MessageStrings[ELECTION] = "Election"
+	MessageStrings[OK] = "Ok"
+	MessageStrings[ADMIRAL] = "Admiral"
+	MessageStrings[WHOISLEADER] = "WhoIsLeader"
+	MessageStrings[LEADER] = "Leader"
+	MessageStrings[PEERS] = "Peer"
+	MessageStrings[PEERLIST] = "PeerList"
+	MessageStrings[READY] = "Ready"
+	MessageStrings[UNREADY] = "Unready"
+	MessageStrings[UNKNOWN] = "Unknown"
+	MessageStrings[PROMOTION] = "Promotion"
+	MessageStrings[CLOSE] = "Close"
+}
+
 // Message is a `struct` used for communication between `captain`s.
 type Message struct {
 	Rank     int    // incoming rank of a captain

@@ -1,7 +1,6 @@
 package navy
 
 import (
-	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -40,6 +39,8 @@ type Captain struct {
 	electionChan chan Message
 	promoted     func()
 	demoted      func()
+
+	interupt bool
 }
 
 // Elect handles the leader election mechanism of the `Bully algorithm`.
@@ -68,77 +69,6 @@ func (c *Captain) Elect() {
 		}
 		return
 	}
-}
-
-// Discover will discover the cluster
-func (c *Captain) Discover() error {
-	if len(c.fleet) == 0 {
-		return fmt.Errorf("[Discover] No Fleet address")
-	}
-
-	var err error
-	for member := range c.fleet {
-		// Ask the seed, who is the current leader
-		err = c.SendOneShot(c.fleet[member], WHOISLEADER)
-		if err == nil {
-			break // we've got one
-		}
-	}
-	if err != nil {
-		return err
-	}
-
-	for msg := range c.discoverChan {
-		// format, _ := json.MarshalIndent(msg, "", "   ")
-		// log.Debugf("%s", format)
-		switch msg.Type {
-		case LEADER:
-			// We've recieved the leader
-			log.Infof("[LEADER] being updated to [%s %d]", msg.Addr, msg.Rank)
-			c.SetLeader(msg.Addr, msg.Rank)
-
-			//Ask the leader for all the peers
-			err := c.SendOneShot(msg.Addr, PEERS)
-			if err != nil {
-				return err
-			}
-
-		case PEERLIST:
-			// We should recieve the peer list for the current leader
-			log.Infof("[PEERLIST] from [%s %d]", msg.Addr, msg.Rank)
-			// Add the leader as a peer
-			err = c.connect(c.proto, msg.Addr, msg.Rank)
-			if err != nil {
-				return err
-			}
-			if c.LeaderRank() != msg.Rank {
-				log.Errorf("Ignoring peers from [%s]", msg.Addr)
-			} else {
-				for x := range msg.Peers {
-					// Stop loopback connections
-					if msg.Peers[x].Addr != c.extaddr && msg.Peers[x].Rank != c.rank {
-						err = c.connect(c.proto, msg.Peers[x].Addr, msg.Peers[x].Rank)
-						if err != nil {
-							return err
-						}
-						err := c.Send(msg.Peers[x].Rank, msg.Peers[x].Addr, READY)
-						if err != nil {
-							log.Error(err)
-						}
-					}
-				}
-				log.Debugf("[PEERS] %v", c.peers.PeerData())
-				c.Ready = true
-				//c.Elect()
-				return nil
-			}
-		case UNREADY:
-			log.Warnf("[UNREADY] no leader currently exists in the cluster from [%s]", msg.Addr)
-		case UNKNOWN:
-			log.Fatalf("[UNKNOWN] this peer has the wrong callsign for the fleet from [%s %d]", msg.Addr, msg.Rank)
-		}
-	}
-	return nil
 }
 
 // Run launches the two main goroutine. The first one is tied to the
