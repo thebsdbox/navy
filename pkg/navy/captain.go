@@ -106,7 +106,9 @@ func (c *Captain) OnDemotion(demotion func()) {
 func (c *Captain) SetLeader(Addr, payload string, rank int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	//fmt.Printf("rank %d leader %d myrank %d\n", rank, c.leaderRank, c.rank)
+
+	fmt.Printf("rank %d leader %d myrank %d\n", rank, c.leaderRank, c.rank)
+
 	// If the new leader has a higher rank they become leader
 	if rank > c.leaderRank {
 
