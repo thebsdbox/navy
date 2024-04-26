@@ -46,4 +46,5 @@ type Message struct {
 		Addr  string
 		Ready bool
 	}
+	Payload string // OPTIONAL
 }

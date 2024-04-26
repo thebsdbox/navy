@@ -25,6 +25,8 @@ func main() {
 	logLevel := flag.Int("log", 4, "The level of logging, (set to 5 for debug logs)")
 
 	timeout := flag.Int("timeout", 0, "How long to wait before resigning from the fleet")
+
+	payload := flag.String("payload", "", "Set a payload")
 	//Parse the flags
 	flag.Parse()
 
@@ -56,10 +58,12 @@ func main() {
 		members = strings.Split(*fleet, ",")
 	}
 
-	b, err := navy.NewCaptainandGo(*rank, *bindaddr, *extadd, "tcp4", *callsign, "", members, *ready, true, remotePeers)
+	b, err := navy.NewCaptainandGo(*rank, *bindaddr, *extadd, "tcp4", *callsign, *payload, members, *ready, true, remotePeers)
 	if err != nil {
 		log.Fatalf("Creating new captain [%v]", err)
 	}
+
+	//b.SetPayload(*payload)
 
 	file, err := os.OpenFile("/tmp/navy", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
@@ -71,10 +75,12 @@ func main() {
 	defer file.Close()
 	promotedFunc := func() {
 		fmt.Printf("%s -> %d\n", time.Now().Format("15:04:05"), *rank)
+		fmt.Println(b.GetLeaderPayload())
 	}
 
 	demotionFunc := func() {
 		fmt.Printf("%s <- %d\n", time.Now().Format("15:04:05"), *rank)
+		fmt.Println(b.GetLeaderPayload())
 	}
 
 	if *timeout != 0 {

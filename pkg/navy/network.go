@@ -153,12 +153,17 @@ func (c *Captain) Send(rank int, addr string, msg int) error {
 			}
 		case LEADER:
 			log.Infof("[LEADER] informing %s of leader %s %d", addr, c.LeaderAddress(), c.LeaderRank())
-			err = c.peers.Write(rank, &Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: msg, CallSign: c.callsign})
+			err = c.peers.Write(rank, &Message{Rank: c.LeaderRank(), Addr: c.LeaderAddress(), Type: msg, CallSign: c.callsign, Payload: c.internalPayload}) //TODO: check if payload is needed here otherwise we're sending more data than needed
 			if err != nil {
 				log.Error(err)
 			}
 		case PEERS:
 			err = c.peers.Write(rank, &Message{Rank: c.rank, Addr: c.extaddr, Type: msg, CallSign: c.callsign})
+			if err != nil {
+				log.Error(err)
+			}
+		case ADMIRAL:
+			err = c.peers.Write(rank, &Message{Rank: c.rank, Addr: c.extaddr, Type: msg, CallSign: c.callsign, Payload: c.internalPayload})
 			if err != nil {
 				log.Error(err)
 			}

@@ -41,10 +41,10 @@ func NewCaptain(rank int, bindaddr, extaddr, proto, callsign string, fleet []str
 	return c
 }
 
-func NewCaptainandGo(rank int, bindaddr, extaddr, proto, callsign string, fleet []string, ready, interupt bool, peers map[int]string) (*Captain, error) {
+func NewCaptainandGo(rank int, bindaddr, extaddr, proto, callsign, payload string, fleet []string, ready, interupt bool, peers map[int]string) (*Captain, error) {
 
 	c := NewCaptain(rank, bindaddr, extaddr, proto, callsign, fleet, ready, interupt, peers)
-
+	c.internalPayload = payload
 	if err := c.Listen(); err != nil {
 		return nil, fmt.Errorf("new: %v", err)
 	}
@@ -76,6 +76,14 @@ func NewCaptainandGo(rank int, bindaddr, extaddr, proto, callsign string, fleet 
 	return c, nil
 }
 
+func (c *Captain) SetPayload(payload string) {
+	c.internalPayload = payload
+}
+
+func (c *Captain) GetLeaderPayload() string {
+	return c.leaderPayload
+}
+
 func (c *Captain) DemoteOnQuit() {
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
@@ -95,28 +103,36 @@ func (c *Captain) OnDemotion(demotion func()) {
 }
 
 // NOTE: This function is thread-safe.
-func (c *Captain) SetLeader(Addr string, rank int) {
+func (c *Captain) SetLeader(Addr, payload string, rank int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	// If the new leader has a higher rank they become leader
 	if rank > c.leaderRank {
 
+		// are we the current leader (i.e does the current leader, match our rank)
+		// If this is true then we're leading
 		if c.leaderRank == c.rank {
-			// If this is true then we're leading
+
+			// If the incoming rank is our rank, we're being promoted
+			if rank == c.rank {
+				if c.promoted != nil {
+					defer c.promoted()
+				}
+			}
+
+			// Is the incoming rank higher, if so we're being demoted
 			if rank > c.rank {
 				if c.demoted != nil {
-					c.demoted()
+					defer c.demoted()
 				}
 			}
 		}
-		if rank == c.rank {
-			if c.promoted != nil {
-				c.promoted()
-			}
-		}
+
+		// Set all leader details
 		c.leaderRank = rank
 		c.leaderAddr = Addr
+		c.leaderPayload = payload
 	}
 
 }
@@ -126,7 +142,7 @@ func (c *Captain) ResetLeader(Addr string, rank int) {
 	defer c.mu.Unlock()
 	c.leaderRank = c.rank
 	c.leaderAddr = c.extaddr
-
+	c.leaderPayload = c.internalPayload
 	for _, peer := range c.peers.PeerData() {
 		if peer.Rank > c.leaderRank {
 			c.leaderRank = peer.Rank

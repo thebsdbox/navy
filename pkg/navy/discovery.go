@@ -70,7 +70,7 @@ func (c *Captain) DiscoverResponse(ready chan interface{}) error {
 		case LEADER:
 			// We've recieved the leader
 			log.Infof("[LEADER] being updated to [%s %d]", msg.Addr, msg.Rank)
-			c.SetLeader(msg.Addr, msg.Rank)
+			c.SetLeader(msg.Addr, msg.Payload, msg.Rank)
 
 			//Ask the leader for all the peers
 			err := c.SendOneShot(msg.Addr, PEERS)
