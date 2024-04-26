@@ -87,8 +87,9 @@ func main() {
 		go func() {
 			time.Sleep(time.Duration(*timeout) * time.Second)
 			fmt.Println("Reached the timeout, resigning")
-
+			b.LeaveFleet()
 			b.Resign()
+
 			//b.SetRank(10)
 		}()
 	}
