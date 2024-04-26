@@ -26,11 +26,9 @@ func (c *Captain) Discover() error {
 }
 
 func (c *Captain) DiscoverWithBackoff(b Backoff) error {
-
 	if len(c.fleet) == 0 {
 		return fmt.Errorf("[Discover] No Fleet address")
 	}
-
 	return RetryWithBackoff(b, c.discover)
 
 }
