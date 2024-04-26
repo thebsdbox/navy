@@ -106,13 +106,20 @@ func (c *Captain) OnDemotion(demotion func()) {
 func (c *Captain) SetLeader(Addr, payload string, rank int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
+	//fmt.Printf("rank %d leader %d myrank %d\n", rank, c.leaderRank, c.rank)
 	// If the new leader has a higher rank they become leader
 	if rank > c.leaderRank {
 
 		// are we the current leader (i.e does the current leader, match our rank)
 		// If this is true then we're leading
-		if c.leaderRank == c.rank {
+		if c.leaderRank <= c.rank {
+
+			// Is the incoming rank higher, if so we're being demoted
+			if rank > c.rank {
+				if c.demoted != nil {
+					defer c.demoted()
+				}
+			}
 
 			// If the incoming rank is our rank, we're being promoted
 			if rank == c.rank {
@@ -121,12 +128,6 @@ func (c *Captain) SetLeader(Addr, payload string, rank int) {
 				}
 			}
 
-			// Is the incoming rank higher, if so we're being demoted
-			if rank > c.rank {
-				if c.demoted != nil {
-					defer c.demoted()
-				}
-			}
 		}
 
 		// Set all leader details
@@ -171,8 +172,8 @@ func (c *Captain) LeaderRank() int {
 	return c.leaderRank
 }
 
-func (c *Captain) Resign() {
-	log.Info("[RESIGN] this captain is resigning from the fleet")
+func (c *Captain) LeaveFleet() {
+	log.Info("[Leave] this captain is leaving from the fleet")
 	for _, peers := range c.peers.PeerData() {
 		err := c.Send(peers.Rank, peers.Addr, CLOSE)
 		if err != nil {
@@ -191,6 +192,10 @@ func (c *Captain) Resign() {
 	}
 	c.wg.Wait() // wait for all work to complete
 
+}
+
+func (c *Captain) Resign() {
+	log.Info("[Leave] this captain is resigning from duty")
 	// Stop processing any more messages
 	close(c.discoverChan)
 	close(c.receiveChan)
