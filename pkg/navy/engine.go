@@ -41,6 +41,9 @@ type Captain struct {
 	demoted      func()
 
 	interupt bool
+
+	internalPayload string // optional, contains our local payload to transmit
+	leaderPayload   string // optional, contains the payload of the current leader
 }
 
 // Elect handles the leader election mechanism of the `Bully algorithm`.
@@ -59,7 +62,8 @@ func (c *Captain) Elect() {
 	case <-c.electionChan:
 		return
 	case <-time.After(time.Second):
-		c.SetLeader(c.extaddr, c.rank)
+		// Timer for election has expired
+		c.SetLeader(c.extaddr, c.internalPayload, c.rank)
 		for _, peers := range c.peers.PeerData() {
 			log.Infof("[ELECTION] leader [%s], informing [%s]", c.extaddr, peers.Addr)
 			err := c.Send(peers.Rank, peers.Addr, ADMIRAL)
@@ -115,7 +119,7 @@ func (c *Captain) Run(workFunc func()) error {
 			}
 		case ADMIRAL:
 			log.Infof("[ELECTION] setting new leader [%s %d]", msg.Addr, msg.Rank)
-			c.SetLeader(msg.Addr, msg.Rank)
+			c.SetLeader(msg.Addr, msg.Payload, msg.Rank)
 
 		case WHOISLEADER:
 			if msg.CallSign != c.callsign {
