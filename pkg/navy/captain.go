@@ -95,11 +95,11 @@ func (c *Captain) DemoteOnQuit() {
 	}()
 }
 
-func (c *Captain) OnPromotion(promotion func(exit chan interface{})) {
+func (c *Captain) OnPromotion(promotion func(chan interface{})) {
 	c.promoted = promotion
 }
 
-func (c *Captain) OnDemotion(demotion func(exit chan interface{})) {
+func (c *Captain) OnDemotion(demotion func(chan interface{})) {
 	c.demoted = demotion
 }
 
@@ -123,6 +123,8 @@ func (c *Captain) SetLeader(Addr, payload string, rank int) {
 					c.leaderPayload = payload
 					exit := make(chan interface{})
 					c.demoted(exit)
+					fmt.Printf("Demotion function complete")
+
 					<-exit
 				}
 			}
