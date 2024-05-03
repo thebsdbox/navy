@@ -37,8 +37,8 @@ type Captain struct {
 	receiveChan  chan Message
 	discoverChan chan Message
 	electionChan chan Message
-	promoted     func()
-	demoted      func()
+	promoted     func(chan interface{})
+	demoted      func(chan interface{})
 
 	interupt bool
 

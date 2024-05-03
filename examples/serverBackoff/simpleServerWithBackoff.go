@@ -87,12 +87,14 @@ func main() {
 	}
 
 	defer file.Close()
-	promotedFunc := func() {
+	promotedFunc := func(exit chan interface{}) {
 		fmt.Printf("%s -> %d\n", time.Now().Format("15:04:05"), *rank)
+		close(exit)
 	}
 
-	demotionFunc := func() {
+	demotionFunc := func(exit chan interface{}) {
 		fmt.Printf("%s <- %d\n", time.Now().Format("15:04:05"), *rank)
+		close(exit)
 	}
 
 	if *timeout != 0 {

@@ -89,16 +89,17 @@ func (c *Captain) DemoteOnQuit() {
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-s
+		log.Infoln("[SIGNAL] caught syscall signal, ending")
 		c.Resign()
 		os.Exit(0)
 	}()
 }
 
-func (c *Captain) OnPromotion(promotion func()) {
+func (c *Captain) OnPromotion(promotion func(exit chan interface{})) {
 	c.promoted = promotion
 }
 
-func (c *Captain) OnDemotion(demotion func()) {
+func (c *Captain) OnDemotion(demotion func(exit chan interface{})) {
 	c.demoted = demotion
 }
 
@@ -119,14 +120,20 @@ func (c *Captain) SetLeader(Addr, payload string, rank int) {
 			// Is the incoming rank higher, if so we're being demoted
 			if rank > c.rank {
 				if c.demoted != nil {
-					defer c.demoted()
+					c.leaderPayload = payload
+					exit := make(chan interface{})
+					c.demoted(exit)
+					<-exit
 				}
 			}
 
 			// If the incoming rank is our rank, we're being promoted
 			if rank == c.rank {
 				if c.promoted != nil {
-					defer c.promoted()
+					c.leaderPayload = payload
+					exit := make(chan interface{})
+					c.promoted(exit)
+					<-exit
 				}
 			}
 
@@ -155,7 +162,9 @@ func (c *Captain) ResetLeader(Addr string, rank int) {
 	}
 	if c.rank == c.leaderRank {
 		if c.promoted != nil {
-			c.promoted()
+			exit := make(chan interface{})
+			c.promoted(exit)
+			<-exit
 		}
 	}
 }
@@ -185,7 +194,9 @@ func (c *Captain) LeaveFleet() {
 
 	// if the demotion funcion is set and we're the leader, then call the demotion function
 	if c.demoted != nil && c.rank == c.leaderRank {
-		c.demoted()
+		exit := make(chan interface{})
+		c.demoted(exit)
+		<-exit
 	}
 	close(c.quit)    // Annouce the quit
 	err := c.Close() // Close the networking
